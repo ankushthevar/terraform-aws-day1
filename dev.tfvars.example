@@ -1,0 +1,7 @@
+environment       = "dev"
+enable_versioning = true
+tags = {
+  Owner      = "your-name"
+  Team       = "platform"
+  CostCenter = "engineering"
+}

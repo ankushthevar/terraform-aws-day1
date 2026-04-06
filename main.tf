@@ -19,37 +19,39 @@ provider "aws" {
     }
   
 }
+locals {
+  # Consistent naming convention across all resources
+  name_prefix = "${var.project_name}-${var.environment}"
+
+  # Merge default tags with caller-supplied tags
+  # caller tags win on conflict (right side wins in merge)
+  common_tags = merge(
+    {
+      Project     = var.project_name
+      Environment = var.environment
+      ManagedBy   = "terraform"
+      CreatedAt   = timestamp()
+    },
+    var.tags
+  )
+
+  # Derive the bucket name with account ID for global uniqueness
+  bucket_name = "${local.name_prefix}-${data.aws_caller_identity.current.account_id}"
+
+  # Versioning status as a string (the resource expects "Enabled"/"Suspended")
+  versioning_status = var.enable_versioning ? "Enabled" : "Suspended"
+}
 
 resource "aws_s3_bucket" "main" {
-  bucket = "${var.project_name}-${var.environment}-${data.aws_caller_identity.current.account_id    }"
-
+  bucket = local.bucket_name
+  tags   = local.common_tags
 }
 
 resource "aws_s3_bucket_versioning" "main" {
   bucket = aws_s3_bucket.main.id
   versioning_configuration {
-    status = "Enabled"
+    status = local.versioning_status
   }
 }
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "main" {
-  bucket = aws_s3_bucket.main.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-
-resource "aws_s3_bucket_public_access_block" "main" {
-  bucket = aws_s3_bucket.main.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
 
 data "aws_caller_identity" "current" {}
- 
